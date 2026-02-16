@@ -3,6 +3,7 @@ package taskin
 import (
 	"backoffice/internal/adapter/broker"
 	"backoffice/internal/domain/task_in/dto"
+	"backoffice/internal/exception"
 	"context"
 	"encoding/json"
 	"time"
@@ -23,6 +24,9 @@ func New(brokerProvider broker.Broker) UseCase {
 }
 
 func (s *service) Process(ctx context.Context, ct *dto.Task) error {
+	if ct.ProcessingTimeMS > 2000 {
+		return exception.ErrProcessingTimeout
+	}
 	taskOut := dto.TaskOut{
 		TaskID:      ct.TaskID,
 		Status:      "processed",

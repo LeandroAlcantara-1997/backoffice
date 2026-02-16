@@ -1,12 +1,11 @@
 package tasksin
 
 import (
+	"backoffice/internal/adapter/broker"
 	taskin "backoffice/internal/domain/task_in"
 	"backoffice/internal/domain/task_in/dto"
 	"context"
 	"encoding/json"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type handler struct {
@@ -18,13 +17,12 @@ func NewTasksIn(c taskin.UseCase) *handler {
 		UseCase: c,
 	}
 }
-func (h *handler) HandleFunc(ctx context.Context, d amqp.Delivery) error {
+func (h *handler) HandleFunc(ctx context.Context, d broker.Delivery) error {
 	var consumerContract dto.Task
-	if err := json.Unmarshal(d.Body, &consumerContract); err != nil {
+	if err := json.Unmarshal(d.Body(), &consumerContract); err != nil {
 		return err
 	}
 
-	println(consumerContract.TaskID)
 	if err := h.UseCase.Process(ctx, &consumerContract); err != nil {
 		return err
 	}

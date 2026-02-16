@@ -18,6 +18,22 @@ func Test_Start(t *testing.T) {
 	StressPublish(context.Background(), "amqp://user:password@localhost:5672", "tasks.in", 1, 1)
 }
 
+var payloads = [][]byte{
+	[]byte(`{
+	"task_id": "123",
+	"payload": "processar isso",
+	"processing_time_ms": 500
+}`),
+	[]byte(`{
+	teste
+}`),
+	[]byte(`{
+	"task_id": "123",
+	"payload": "processar isso",
+	"processing_time_ms": 2000
+}`),
+}
+
 func StressPublish(ctx context.Context, url, qName string, rps, seconds int) error {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -31,16 +47,27 @@ func StressPublish(ctx context.Context, url, qName string, rps, seconds int) err
 	}
 	defer ch.Close()
 
-	task := dto.Task{}
-	for i := range 100 {
-		task.TaskID = strconv.Itoa(i)
-		body, err := json.Marshal(&task)
-		if err != nil {
-			return err
+	for i := range 10000 {
+		var payload []byte
+		if i%2 == 0 {
+			payload, err = json.Marshal(&dto.Task{
+				TaskID:           strconv.Itoa(i),
+				Payload:          "processar isso",
+				ProcessingTimeMS: 500,
+			})
 		}
+
+		if i%3 == 0 {
+			payload, err = json.Marshal(&dto.Task{
+				TaskID:           strconv.Itoa(i),
+				Payload:          "processar isso",
+				ProcessingTimeMS: 200000,
+			})
+		}
+
 		err = ch.PublishWithContext(ctx, "", qName, false, false, amqp.Publishing{
 			ContentType:  "application/json",
-			Body:         body,
+			Body:         payload,
 			DeliveryMode: amqp.Persistent,
 			MessageId:    strconv.FormatInt(time.Now().UnixNano(), 10),
 		})
@@ -50,5 +77,4 @@ func StressPublish(ctx context.Context, url, qName string, rps, seconds int) err
 	}
 
 	return nil
-
 }

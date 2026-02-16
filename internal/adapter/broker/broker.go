@@ -7,7 +7,7 @@ import (
 )
 
 type Broker interface {
-	Consumer(ctx context.Context) (<-chan amqp.Delivery, error)
+	Consumer(ctx context.Context) (<-chan Delivery, error)
 	Publish(ctx context.Context, payload []byte) error
 	Close() error
 }
@@ -26,13 +26,13 @@ func NewBroker(queueName string, ch *amqp.Channel, conn *amqp.Connection) Broker
 	}
 }
 
-func (r *rabbitMQ) Consumer(ctx context.Context) (<-chan amqp.Delivery, error) {
+func (r *rabbitMQ) Consumer(ctx context.Context) (<-chan Delivery, error) {
 	// QoS é importante para backpressure; ajuste conforme sua concorrência
 	if err := r.channel.Qos(10, 0, false); err != nil {
 		return nil, err
 	}
 
-	deliveries, err := r.channel.Consume(
+	msgs, err := r.channel.Consume(
 		r.queueName,
 		"",    // consumerTag (deixe o broker gerar)
 		false, // autoAck = false  (ESSENCIAL pra não perder)
@@ -45,43 +45,32 @@ func (r *rabbitMQ) Consumer(ctx context.Context) (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 
-	return deliveries, nil
-	// out := make(chan Delivery, 100) // buffer para absorver picos
+	// wg := new(sync.WaitGroup)
+	// wg.Add(3)
+	var out = make(chan Delivery, 1024)
+	go func() {
+		defer close(out) // feche quando in acabar/cancelar
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case v, ok := <-msgs:
+				if !ok {
+					return
+				}
+				// envio respeitando cancelamento
+				select {
+				case out <- Delivery{v}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	// wg.Wait()
+	// defer wg.Done()
 
-	// go func() {
-	// 	defer close(out)
-
-	// 	for {
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			// Parar novas entregas e drenar com sua política
-	// 			_ = r.channel.Cancel("", false)
-	// 			for d := range deliveries {
-	// 				_ = d.Nack(false, true) // requeue no shutdown (ou DLX)
-	// 			}
-	// 			return
-
-	// 		case d, ok := <-deliveries:
-	// 			if !ok {
-	// 				// consumer cancelado / channel AMQP fechado
-	// 				return
-	// 			}
-
-	// 			// Tentar repassar para 'out' respeitando o contexto.
-	// 			// Se o ctx cancelar nesse momento, NÃO deixe a msg cair: Nack(requeue).
-	// 			select {
-	// 			case out <- Delivery{d: d}:
-	// 				// entregue com sucesso para downstream; downstream fará Ack/Nack
-	// 			case <-ctx.Done():
-	// 				// NÃO PERDER 'd'!
-	// 				_ = d.Nack(false, true)
-	// 				return
-	// 			}
-	// 		}
-	// 	}
-	// }()
-
-	// return out, nil
+	return out, nil
 }
 
 func (r *rabbitMQ) Close() error {
@@ -97,7 +86,7 @@ func (r *rabbitMQ) Close() error {
 }
 
 func (r *rabbitMQ) Publish(ctx context.Context, payload []byte) error {
-	return r.channel.PublishWithContext(ctx, "", r.queueName, true, false, amqp.Publishing{
+	return r.channel.PublishWithContext(ctx, "", r.queueName, false, false, amqp.Publishing{
 		Body: payload,
 	})
 }
