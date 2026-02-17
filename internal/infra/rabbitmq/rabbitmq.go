@@ -18,6 +18,7 @@ func New(connectionURL string) (*amqp.Connection, *amqp.Channel, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// defer conn.Close()
 
 	ch, err := conn.Channel()

@@ -4,6 +4,9 @@ import (
 	"context"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Broker interface {
@@ -86,6 +89,9 @@ func (r *rabbitMQ) Close() error {
 }
 
 func (r *rabbitMQ) Publish(ctx context.Context, payload []byte) error {
+	ctx, span := otel.Tracer(r.queueName).Start(ctx, "publing message",
+		trace.WithAttributes(attribute.String("msg", string(payload))))
+	defer span.End()
 	return r.channel.PublishWithContext(ctx, "", r.queueName, false, false, amqp.Publishing{
 		Body: payload,
 	})

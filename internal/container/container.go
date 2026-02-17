@@ -6,6 +6,7 @@ import (
 	"backoffice/internal/adapter/cache"
 	taskin "backoffice/internal/domain/task_in"
 	taskout "backoffice/internal/domain/task_out"
+	"backoffice/internal/infra/otel"
 	"backoffice/internal/infra/rabbitmq"
 	"backoffice/internal/infra/redis"
 	"context"
@@ -29,11 +30,14 @@ type UseCases struct {
 }
 
 func New(ctx context.Context) (*Container, error) {
-	var err error
-	if err = env.LoadEnv(); err != nil {
+	if err := env.LoadEnv(); err != nil {
 		return nil, err
 	}
 
+	_, err := otel.New(env.Env.APIName, env.Env.Environment).TraceProvider(ctx)
+	if err != nil {
+		return nil, err
+	}
 	tasksIn, err := setupBroker(
 		env.Env.TasksInBrokerConfig.QueueName,
 		env.Env.TasksInBrokerConfig.URL)

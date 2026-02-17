@@ -1,33 +1,35 @@
-package tasksin
+package taskout
 
 import (
 	"backoffice/internal/adapter/broker"
-	"backoffice/internal/domain/task_in/dto"
+	"backoffice/internal/domain/task_out/dto"
 	"backoffice/internal/mocks"
 	"context"
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestHandleFunc(t *testing.T) {
 	t.Run("must return success when read payload", func(t *testing.T) {
 		var (
 			ctx     = context.Background()
-			useCase = mocks.NewTaskInProcessUseCaseMock(t)
+			useCase = mocks.NewTaskOutProcessUseCaseMock(t)
 			h       = handler{
 				UseCase: useCase,
 			}
-			ct = &dto.Task{
-				TaskID:           "1",
-				Payload:          "processing",
-				ProcessingTimeMS: 500,
+			ct = &dto.TaskOut{
+				TaskID:      "1",
+				Status:      "processed",
+				ProcessedAt: time.Now(),
 			}
 		)
-		useCase.EXPECT().Process(ctx, ct).Return(nil)
+		useCase.EXPECT().Process(ctx, mock.Anything).Return(nil)
 		payload, err := json.Marshal(ct)
 		assert.NoError(t, err)
 
@@ -41,17 +43,17 @@ func TestHandleFunc(t *testing.T) {
 	t.Run("must return error from use case", func(t *testing.T) {
 		var (
 			ctx     = context.Background()
-			useCase = mocks.NewTaskInProcessUseCaseMock(t)
+			useCase = mocks.NewTaskOutProcessUseCaseMock(t)
 			h       = handler{
 				UseCase: useCase,
 			}
-			ct = &dto.Task{
-				TaskID:           "1",
-				Payload:          "processing",
-				ProcessingTimeMS: 500,
+			ct = &dto.TaskOut{
+				TaskID:      "1",
+				Status:      "processed",
+				ProcessedAt: time.Now(),
 			}
 		)
-		useCase.EXPECT().Process(ctx, ct).Return(errors.New("error"))
+		useCase.EXPECT().Process(ctx, mock.Anything).Return(errors.New("error"))
 		payload, err := json.Marshal(ct)
 		assert.NoError(t, err)
 
@@ -65,7 +67,7 @@ func TestHandleFunc(t *testing.T) {
 	t.Run("must return error when sent a invalid body", func(t *testing.T) {
 		var (
 			ctx     = context.Background()
-			useCase = mocks.NewTaskInProcessUseCaseMock(t)
+			useCase = mocks.NewTaskOutProcessUseCaseMock(t)
 			h       = handler{
 				UseCase: useCase,
 			}

@@ -34,23 +34,20 @@ func Start(ctx context.Context, h Handle, cs, dlq broker.Broker) error {
 		return err
 	}
 
-	// 2) Loop de consumo em goroutine própria
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				// Contexto cancelado: sair do loop
 				return
 
 			case msg, ok := <-msgs:
 				if !ok {
-					// Canal fechado: consumidor parou
 					return
 				}
 
 				// Processamento da mensagem
 				if err := h.HandleFunc(ctx, msg); err != nil {
-					slog.InfoContext(ctx, "mensagem rejeitada (handler retornou erro)", "error", err)
+					slog.InfoContext(ctx, "rejected message:", "error", err)
 
 					// Publica na DLQ; se falhar, Nack e inicia shutdown
 					if publishErr := dlq.Publish(ctx, msg.Body()); publishErr != nil {
@@ -64,14 +61,11 @@ func Start(ctx context.Context, h Handle, cs, dlq broker.Broker) error {
 					_ = msg.Ack()
 					continue
 				}
-
-				slog.InfoContext(ctx, "mensagem aprovada")
 				_ = msg.Ack()
 			}
 		}
 	}()
 
-	// 3) Bloqueia até receber sinal OU contexto encerrar por outra causa
 	select {
 	case sig := <-sigCh:
 		if sig != nil {
