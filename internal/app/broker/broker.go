@@ -58,7 +58,7 @@ func Start(ctx context.Context, h Handle, cs, dlq broker.Broker) error {
 						return
 					}
 
-					_ = msg.Ack()
+					_ = msg.Nack(false)
 					continue
 				}
 				_ = msg.Ack()
@@ -71,12 +71,10 @@ func Start(ctx context.Context, h Handle, cs, dlq broker.Broker) error {
 		if sig != nil {
 			slog.InfoContext(ctx, "signal received; starting graceful shutdown...", "signal", sig.String())
 		}
-		cancel() // Propaga cancelamento
+		cancel()
 	case <-ctx.Done():
-		// Já cancelado por outra razão (ex.: erro acima)
 	}
 
-	// 4) Executa shutdown do consumer e espera goroutines
 	gracefulShutdown(ctx, cs)
 
 	slog.InfoContext(ctx, "consumer stopped gracefully")
@@ -103,31 +101,3 @@ func gracefulShutdown(parentCtx context.Context, cs broker.Broker) error {
 	slog.Info("consumer shutdown complete")
 	return errors.New("server is down")
 }
-
-// msgs, err := rabbitmq.RabbitMQClient.ConsumeRabbitMQQueue("coffee_orders")
-
-//  if err != nil {
-//   log.Fatalf("Failed to consume RabbitMQ queue: %s", err)
-//   return
-//  }
-
-//  // CHANNEL TO RECEIVE COFFEE ORDERS
-//  forever := make(chan bool)
-
-//  go func() {
-//   for d := range msgs {
-//    var coffeeOrder CoffeeOrder
-//    err := json.Unmarshal(d.Body, &coffeeOrder)
-//    if err != nil {
-//     log.Printf("Error reading coffee order (please check the JSON format): %s", err)
-//     continue
-//    }
-
-//    // PRINT THE COFFEE ORDER
-//    fmt.Printf("Received a coffee order: Coffee Type = %s, Price = %f\n", coffeeOrder.CoffeeType, coffeeOrder.Price)
-//   }
-//  }()
-
-//  log.Printf("[*] Waiting for messages. To exit press CTRL+C")
-//  <-forever
-// }
