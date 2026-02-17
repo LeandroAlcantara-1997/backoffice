@@ -1,0 +1,34 @@
+all: false
+dir: './internal/mocks'
+force-file-write: true
+formatter: goimports
+generate: true
+include-auto-generated: false
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: 'mocks'
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  backoffice/internal/domain/task_out:
+    config:
+      all: true
+      structname: 'TaskOutProcessUseCaseMock'
+      filename: task_out_mock.go
+  backoffice/internal/domain/task_in:
+    config:
+      all: true
+      structname: 'TaskInProcessUseCaseMock'
+      filename: task_in_mock.go
+  backoffice/internal/adapter/cache:
+    config:
+      all: true
+      structname: 'CacheMock'
+      filename: cache_mock.go
+  backoffice/internal/adapter/broker:
+    config:
+      all: true
+      structname: 'BrokerMock'
+      filename: broker_mock.go
